@@ -1,0 +1,15 @@
+{
+  "name": "paw-connect",
+  "version": "0.1.0",
+  "private": true,
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "scripts": {
+    "start": "echo 'No local server needed, open index.html directly' && exit 0",
+    "type-check": "tsc --noEmit"
+  },
+  "engines": {
+    "node": "20.x"
+  }
+}

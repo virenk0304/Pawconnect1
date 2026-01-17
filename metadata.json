@@ -1,0 +1,7 @@
+{
+  "name": "Paw Connect - Smart Pet Ecosystem",
+  "description": "A comprehensive digital pet management platform with AI-powered health reports, community sharing, and interactive care tips.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

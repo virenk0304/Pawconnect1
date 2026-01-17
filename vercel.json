@@ -1,0 +1,8 @@
+{
+  "installCommand": "echo 'Skipping npm install as dependencies are handled by importmap in index.html'",
+  "buildCommand": "echo 'No build command needed for static HTML with importmap'",
+  "outputDirectory": "./",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
