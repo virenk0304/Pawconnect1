@@ -1,75 +1,75 @@
+// Frontend service to interact with Google Apps Script backend (Community features)
 
-// This file contains functions to interact with the Google Apps Script backend.
-
-// ✅ Deployed Google Apps Script Web App URL
 const BASE_URL =
   "https://script.google.com/macros/s/AKfycbza_LK2bB8xthli7ei5WZEofF4d4jJjgV6p8D20DvRt0P7B1EyyMZh6h7n2VodX-x1KmA/exec";
 
 /**
- * Helper function to make POST requests to the Google Apps Script backend.
- * Automatically attaches username from localStorage.
+ * Internal helper to talk to Apps Script backend
  */
-async function makeBackendRequest(action: string, data: any = {}) {
+async function sendRequest(action: string, payload: Record<string, any> = {}) {
   const username = localStorage.getItem("paw_username");
 
   if (!username) {
     throw new Error("Username not set. Please configure it in App Settings.");
   }
 
-  const payload = {
+  const body = {
     action,
     username,
-    ...data
+    ...payload
   };
 
-  try {
-    const response = await fetch(BASE_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    });
+  const response = await fetch(BASE_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
 
-    if (!response.ok) {
-      const text = await response.text();
-      console.error("Backend error:", text);
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (err) {
-    console.error("Backend connection failed:", err);
-    throw err;
+  if (!response.ok) {
+    const text = await response.text();
+    console.error("Apps Script error:", text);
+    throw new Error("Backend request failed");
   }
+
+  return response.json();
 }
 
 /* ======================================================
-   COMMUNITY ACTIONS
+   COMMUNITY POSTS
 ====================================================== */
 
 export async function createPost(postText: string, type: string) {
   const formattedType = type.replace(/ & /g, "_").toLowerCase();
 
-  return makeBackendRequest("create_post", {
+  return sendRequest("create_post", {
     post_text: postText,
     type: formattedType
   });
 }
 
-export async function getPosts(): Promise<any[]> {
-  const res = await makeBackendRequest("get_posts");
+export async function getPosts() {
+  const res = await sendRequest("get_posts");
   return res.posts || [];
 }
 
+/* ======================================================
+   LIKES
+====================================================== */
+
 export async function likePost(postId: string) {
-  return makeBackendRequest("like_post", {
+  return sendRequest("like_post", {
     post_id: postId
   });
 }
 
+/* ======================================================
+   COMMENTS
+====================================================== */
+
 export async function addComment(postId: string, commentText: string) {
-  return makeBackendRequest("add_comment", {
+  return sendRequest("add_comment", {
     post_id: postId,
     comment_text: commentText
   });
