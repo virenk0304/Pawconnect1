@@ -1,28 +1,82 @@
-import React from "react";
-import { aiCommunityPosts } from "../data/aiCommunityPosts";
+import React, { useEffect, useState } from "react";
+
+interface CommunityPost {
+  post_id: string;
+  username: string;
+  post_text: string;
+  created_at: string;
+  like_count: number;
+  comment_count: number;
+}
 
 export default function Community() {
-  const posts = aiCommunityPosts;
+  const [postText, setPostText] = useState("");
+  const [posts, setPosts] = useState<CommunityPost[]>([]);
+
+  // Load posts from localStorage on first load
+  useEffect(() => {
+    const savedPosts = localStorage.getItem("paw_posts");
+    if (savedPosts) {
+      setPosts(JSON.parse(savedPosts));
+    }
+  }, []);
+
+  // Save posts to localStorage
+  const persistPosts = (updatedPosts: CommunityPost[]) => {
+    setPosts(updatedPosts);
+    localStorage.setItem("paw_posts", JSON.stringify(updatedPosts));
+  };
+
+  // Create a new post
+  const handlePost = () => {
+    if (!postText.trim()) return;
+
+    const username =
+      localStorage.getItem("paw_username") || "guest_user";
+
+    const newPost: CommunityPost = {
+      post_id: "p_" + Date.now(),
+      username: username,
+      post_text: postText,
+      created_at: new Date().toISOString(),
+      like_count: 0,
+      comment_count: 0
+    };
+
+    persistPosts([newPost, ...posts]);
+    setPostText("");
+  };
+
+  // Like a post
+  const handleLike = (postId: string) => {
+    const updatedPosts = posts.map(post =>
+      post.post_id === postId
+        ? { ...post, like_count: post.like_count + 1 }
+        : post
+    );
+
+    persistPosts(updatedPosts);
+  };
 
   return (
     <div className="p-4 max-w-2xl mx-auto">
       <h1 className="text-xl font-bold mb-2">Community</h1>
 
       <p className="text-sm text-gray-500 mb-4">
-        This community feed is <strong>AI-curated</strong> to ensure safe and verified pet-care
-        information.
+        Community posts are stored locally for instant interaction in this demo.
       </p>
 
-      {/* Disabled Post Box */}
+      {/* Create Post */}
       <div className="mb-6">
         <textarea
-          disabled
-          className="w-full border rounded p-2 bg-gray-100"
-          placeholder="Community posting is restricted in this demo."
+          className="w-full border rounded p-2"
+          placeholder="Share something about your pet..."
+          value={postText}
+          onChange={(e) => setPostText(e.target.value)}
         />
         <button
-          disabled
-          className="mt-2 px-4 py-2 bg-gray-300 text-white rounded cursor-not-allowed"
+          onClick={handlePost}
+          className="mt-2 px-4 py-2 bg-blue-600 text-white rounded"
         >
           Post
         </button>
@@ -30,28 +84,36 @@ export default function Community() {
 
       {/* Community Feed */}
       <div className="space-y-4">
-        {posts.map(post => (
+        {posts.length === 0 && (
+          <p className="text-sm text-gray-400">
+            No posts yet. Be the first to post!
+          </p>
+        )}
+
+        {posts.map((post) => (
           <div
             key={post.post_id}
-            className="border rounded p-3 shadow-sm bg-white"
+            className="border rounded p-3 bg-white shadow-sm"
           >
             <div className="flex justify-between items-center mb-1">
               <span className="font-semibold">{post.username}</span>
               <span className="text-xs text-gray-400">
-                {new Date(post.created_at).toLocaleDateString()}
+                {new Date(post.created_at).toLocaleString()}
               </span>
             </div>
 
-            <p className="text-gray-800 mb-2">{post.post_text}</p>
+            <p className="mb-2">{post.post_text}</p>
 
-            <div className="text-sm text-gray-500 flex gap-4">
-              <span>👍 {post.like_count}</span>
-              <span>💬 {post.comment_count}</span>
-              <span className="italic">AI-generated</span>
-            </div>
+            <button
+              onClick={() => handleLike(post.post_id)}
+              className="text-sm text-blue-600"
+            >
+              👍 Like ({post.like_count})
+            </button>
           </div>
         ))}
       </div>
     </div>
   );
 }
+
