@@ -1,65 +1,86 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Pet, Tip, PostType } from "../types";
 
-// ✅ Vite-safe API key access
-const API_KEY = import.meta.env.VITE_API_KEY;
+/* ======================================================
+   ENV + SAFE INITIALIZATION
+====================================================== */
 
-// ✅ Prevent white screen if key is missing (local dev)
-if (!API_KEY) {
-  console.warn("Gemini API key not found. AI features disabled.");
-}
+// Vite injects env vars at build time
+const API_KEY = import.meta.env.VITE_API_KEY as string | undefined;
 
+// IMPORTANT: Never crash UI if key is missing
 const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
 
-/* ---------------- CHAT ---------------- */
+// Optional debug (remove later if you want)
+console.log("Gemini enabled:", Boolean(API_KEY));
+
+/* ======================================================
+   CHAT
+====================================================== */
 
 export const getChatResponse = async (
   history: { role: "user" | "model"; parts: { text: string }[] }[],
   message: string
-) => {
-  if (!ai) return "AI is disabled.";
+): Promise<string> => {
+  if (!ai) return "AI is currently disabled.";
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: [...history, { role: "user", parts: [{ text: message }] }],
     config: {
       systemInstruction:
-        "You are PawConnect AI, an expert veterinarian and pet behaviorist. Keep replies friendly, concise, and professional."
+        "You are PawConnect AI, an expert veterinarian and pet behaviorist. Keep responses friendly, concise, and professional."
     }
   });
 
-  return response.text;
+  return response.text || "No response generated.";
 };
 
-/* ---------------- HEALTH SCORE ---------------- */
+/* ======================================================
+   PET HEALTH SCORE
+====================================================== */
 
-export const getPetHealthScore = async (pet: Partial<Pet>): Promise<number> => {
+export const getPetHealthScore = async (
+  pet: Partial<Pet>
+): Promise<number> => {
   if (!ai) return 85;
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Analyze health and return ONLY a number (0–100).
-Type: ${pet.type}, Breed: ${pet.breed}, Age: ${pet.age}, Weight: ${pet.weight}kg.`,
+    contents: `
+Analyze pet health and return ONLY a number from 0 to 100.
+
+Type: ${pet.type}
+Breed: ${pet.breed}
+Age: ${pet.age}
+Weight: ${pet.weight}kg
+`,
     config: { temperature: 0.1 }
   });
 
-  const score = parseInt(response.text?.trim() || "85");
+  const score = parseInt(response.text?.trim() || "85", 10);
   return isNaN(score) ? 85 : score;
 };
 
-/* ---------------- PET REPORT ---------------- */
+/* ======================================================
+   DETAILED PET REPORT
+====================================================== */
 
-export const generatePetReport = async (pet: Pet) => {
-  if (!ai) return "AI is disabled.";
+export const generatePetReport = async (pet: Pet): Promise<string> => {
+  if (!ai) return "AI is currently disabled.";
 
   const prompt = `
 Name: ${pet.name}
 Species: ${pet.type}
 Breed: ${pet.breed}
-Age: ${pet.age}
+Age: ${pet.age} years
 Weight: ${pet.weight}kg
 
-Provide a professional veterinary health summary with clear insights.
+Generate a professional veterinary health summary with:
+- Life stage
+- Weight assessment
+- Breed-specific risks
+- 3 actionable health goals
 `;
 
   const response = await ai.models.generateContent({
@@ -70,18 +91,20 @@ Provide a professional veterinary health summary with clear insights.
     }
   });
 
-  return response.text;
+  return response.text || "Unable to generate report.";
 };
 
-/* ---------------- DAILY TIPS ---------------- */
+/* ======================================================
+   DAILY TIPS
+====================================================== */
 
 export const getDailyTips = async (count = 40): Promise<Tip[]> => {
   if (!ai) return [];
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Generate 40 pet care tips (Health, Nutrition, Training, General). 
-Return JSON only.`,
+    contents:
+      "Generate exactly 40 pet care tips across Health, Nutrition, Training, and General. Return JSON only.",
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -101,16 +124,29 @@ Return JSON only.`,
     }
   });
 
-  return JSON.parse(response.text || "[]").slice(0, count);
+  try {
+    return JSON.parse(response.text || "[]").slice(0, count);
+  } catch {
+    return [];
+  }
 };
 
-/* ---------------- COMMUNITY SUMMARY ---------------- */
+/* ======================================================
+   COMMUNITY SUMMARY
+====================================================== */
 
-export const summarizeCommunityReplies = async (replies: string[]) => {
-  if (!ai || replies.length === 0) return "No replies yet.";
+export const summarizeCommunityReplies = async (
+  replies: string[]
+): Promise<string> => {
+  if (!ai || replies.length === 0) {
+    return "No replies to summarize.";
+  }
 
-  const prompt = `Summarize these replies into 3–5 helpful bullet points:
-${replies.map(r => `- ${r}`).join("\n")}`;
+  const prompt = `
+Summarize these community replies into 3–5 simple bullet points:
+
+${replies.map(r => `- ${r}`).join("\n")}
+`;
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
@@ -120,23 +156,38 @@ ${replies.map(r => `- ${r}`).join("\n")}`;
   return response.text || "Summary unavailable.";
 };
 
-/* ---------------- POST SUMMARY ---------------- */
+/* ======================================================
+   SINGLE POST SUMMARY
+====================================================== */
 
 export const summarizeSinglePost = async (
   postContent: string,
   postType?: PostType
-) => {
-  if (!ai || !postContent.trim()) return "Nothing to summarize.";
+): Promise<string> => {
+  if (!ai || !postContent.trim()) {
+    return "Nothing to summarize.";
+  }
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: [{ role: "user", parts: [{ text: postContent }] }]
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            text: `Summarize this post in simple bullet points:\n${postContent}`
+          }
+        ]
+      }
+    ]
   });
 
   return response.text || "Summary unavailable.";
 };
 
-/* ---------------- POST ENHANCER ---------------- */
+/* ======================================================
+   POST ENHANCER
+====================================================== */
 
 export const enhanceCommunityPost = async (
   rawText: string,
@@ -146,9 +197,11 @@ export const enhanceCommunityPost = async (
     return { title: "AI Disabled", improvedPost: rawText };
   }
 
-  const prompt = `Rewrite this post clearly and warmly.
+  const prompt = `
+Rewrite this post to be clearer and friendlier.
+Category: ${category || "General"}
 Text: "${rawText}"
-Category: ${category || "General"}`;
+`;
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
@@ -160,3 +213,4 @@ Category: ${category || "General"}`;
     improvedPost: response.text || rawText
   };
 };
+
